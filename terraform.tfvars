@@ -1,0 +1,5 @@
+cloud_id  = "b1g3jddf4nv5e9okle7p"
+folder_id = "b1gb15hv25llujudhpp5"
+zone      = "ru-central1-a"
+student_id = "std-048-04"
+ssh_auth_key_file = "~/.ssh/tf-cloud-init.pub"
