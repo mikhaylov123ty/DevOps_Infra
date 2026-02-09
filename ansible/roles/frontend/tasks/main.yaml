@@ -1,0 +1,96 @@
+- name: Install prerequisites
+  become: yes
+  apt:
+    name:
+    - "curl"
+    state: present
+    update_cache: yes
+
+- name: Download NodeJS prerequisites script
+  get_url:
+    url: "https://deb.nodesource.com/setup_24.x"
+    dest: "/tmp/nodesource_setup.sh"
+    timeout: 60
+
+- name: Install NodeJS prerequisites
+  become: yes
+  shell:
+    cmd: bash "/tmp/nodesource_setup.sh"
+
+- name: Install NodeJS
+  become: yes
+  apt:
+    name:
+      - "nodejs"
+    state: present
+    update_cache: yes
+
+- name: Install NPM
+  become: yes
+  npm:
+    name: "npm"
+    version: "{{ npm_version }}"
+    state: present
+    global: yes
+
+- name: Install HTTP-server
+  become: yes
+  npm:
+    name: "http-server"
+    global: yes
+
+- name: Adding service user
+  become: yes  
+  user:
+    name: "{{ frontend_user }}"
+    shell: "/sbin/nologin"
+
+- name: Create directory for frontend
+  become: yes
+  file:
+    path: "{{ frontend_dir }}"
+    state: directory
+    owner: "{{ frontend_user }}"
+    group: "{{ frontend_user }}"
+    mode: 0755
+
+- name: Download frontend tar.gz from Nexus
+  get_url:
+    url: "{{ NEXUS_REPO_URL }}/{{ NEXUS_REPO_FRONTEND_NAME }}/{{ frontend_artifact }}/{{ project_name }}-{{ frontend_artifact }}.tar.gz"
+    dest: "/tmp/{{ project_name }}-{{ frontend_artifact }}.tar.gz"
+    url_username: "{{ NEXUS_REPO_USER }}"
+    url_password: "{{ NEXUS_REPO_PASS }}"
+    force_basic_auth: yes
+    timeout: 60
+
+- name: Unpack frontend tar.gz
+  become: yes
+  unarchive:
+    dest: "{{ frontend_dir }}"
+    src: "/tmp/{{ project_name }}-{{ frontend_artifact }}.tar.gz"
+    remote_src: yes
+
+- name: Assign proper permissions to frontend directory content
+  become: yes
+  file:
+    path: "{{ frontend_dir }}"
+    owner: "{{ frontend_user }}"
+    group: "{{ frontend_user }}"
+    recurse: yes
+
+- name: Building frontend systemd unit file from template
+  become: yes
+  template:
+    src: "{{ project_name }}-frontend.service.j2"
+    dest: "/etc/systemd/system/{{ project_name }}-frontend.service"
+
+- name: Reading new systemd configuration
+  become: yes
+  systemd:
+    daemon_reload: yes
+
+- name: Done
+  become: yes
+  service:
+    name: "{{ project_name }}-frontend"
+    state: started

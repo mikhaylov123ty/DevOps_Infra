@@ -1,0 +1,9 @@
+- name: Sausage store backend service play
+  hosts: backend
+  roles:
+    - backend
+
+- name: Sausage store frontend service play
+  hosts: frontend
+  roles:
+      - frontend
