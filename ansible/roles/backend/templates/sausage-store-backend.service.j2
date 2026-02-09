@@ -1,0 +1,13 @@
+[Unit]
+Description=Sausage-store-backend
+
+[Service]
+User={{ backend_user }}
+Environment=REPORT_PATH={{ backend_report_path }}
+Environment=LOG_PATH={{ backend_log_path }}
+Restart=always
+ExecStart=/usr/bin/java -Xrs -jar {{ artifact_dir }}/{{ project_name }}.jar
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

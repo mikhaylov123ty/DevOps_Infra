@@ -1,0 +1,7 @@
+frontend_user: "www-data"
+frontend_dir: "/var/{{ frontend_user }}"
+frontend_artifact: "1.0.2608726"
+npm_version: "8.1.2"
+NEXUS_REPO_FRONTEND_NAME: "std-048-04-frontend-raw"
+http_server_port: 80
+http_server_proxy: "http://localhost:8080"

@@ -1,0 +1,6 @@
+backend_user: "backend"
+NEXUS_REPO_BACKEND_NAME: "std-048-04-backend"
+artifact_version: "1.0.2608725"
+artifact_dir: "/opt/{{ project_name }}/backend/lib"
+backend_report_path: "/var/sausage-store/reports"
+backend_log_path: "/var/sausage-store/logs"
