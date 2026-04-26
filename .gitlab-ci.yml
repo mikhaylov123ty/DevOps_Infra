@@ -1,0 +1,48 @@
+stages:
+  - deploy
+
+variables:
+  KUBECONFIGFILE: ./kubeconfig
+  DOCKERCONFIGFILE: ./dockerconfig.json
+
+# Job to deploy apps to kubernetes environment
+deploy-kubernetes-app:
+  stage: deploy
+  when: manual
+  rules:
+    - changes:
+        - kubernetes/**/*
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [ "" ]
+  environment:
+    name: kubernetes
+    url: https://std-048-04.k8s.praktikum-services.tech/
+  before_script:
+    - echo "${KUBECONFIG_BASE64}" | base64 -d > ${KUBECONFIGFILE}
+    - export KUBECONFIG=${KUBECONFIGFILE}
+    - kubectl config set current-context std-048-04@yc-managed-k8s
+
+    - echo "${DOCKERCONFIG_BASE64}" | base64 -d > ${DOCKERCONFIGFILE}
+    - kubectl delete secret docker-config-secret 2>/dev/null || true
+    - kubectl create secret docker-registry docker-config-secret --from-file=${DOCKERCONFIGFILE}
+
+    - kubectl delete secret vault 2>/dev/null || true
+    - kubectl create secret generic vault --from-literal=vault_host="${VAULT_HOST}" --from-literal=vault_token="${VAULT_TOKEN}"
+    - kubectl label secret vault app=backend
+
+    - kubectl delete secret mongodb-uri 2>/dev/null || true
+    - kubectl create secret generic mongodb-uri --from-literal=uri="${MONGO_DB_URI}"
+    - kubectl label secret mongodb-uri app=backend-report
+  script:
+    - kubectl apply -f kubernetes/backend-report
+    - kubectl wait deployment/backend-report --for=condition=available --timeout=60s
+
+    - kubectl apply -f kubernetes/backend
+    - kubectl wait deployment/backend --for=condition=available --timeout=60s
+
+    - kubectl apply -f kubernetes/frontend
+    - kubectl wait deployment/frontend --for=condition=available --timeout=60s
+after_script:
+  - rm -f ${KUBECONFIGFILE}
+  - rm -f ${DOCKERCONFIGFILE}

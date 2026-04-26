@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-report
+  labels:
+    app: backend-report
+spec:
+  # желаемое количество реплик Pod'а
+  replicas: 1
+  # Стратегия развёртывания. Recreate — удалит сначала все старые Pod'ы
+  # Есть и более гибкая стратегии, например, RollingUpdate, которая будет обновлять Pod'ы порциями
+  strategy:
+    type: Recreate
+  # селектор, который выбирает Pod'ы, попадающие под управление RC (Replication Controller)
+  selector:
+    matchLabels:
+      app: backend-report
+  template:
+    metadata:
+      labels:
+        app: backend-report
+    # шаблон для создания Pod'ов
+    spec:
+      containers:
+        - image: gitlab.praktikum-services.ru:5050/std-048-04/sausage-store/sausage-backend-report:latest
+          name: backend-report
+          imagePullPolicy: Always
+          env:
+            - name: DB
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-uri
+                  key: uri
+            - name: PORT
+              value: '8080'
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+      # чтобы Кубер мог скачивать образы из нашего GitLab Registry
+      imagePullSecrets:
+        - name: docker-config-secret
