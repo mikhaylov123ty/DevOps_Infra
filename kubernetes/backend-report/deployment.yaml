@@ -5,12 +5,12 @@ metadata:
   labels:
     app: backend-report
 spec:
-  # желаемое количество реплик Pod'а
-  replicas: 1
   # Стратегия развёртывания. Recreate — удалит сначала все старые Pod'ы
   # Есть и более гибкая стратегии, например, RollingUpdate, которая будет обновлять Pod'ы порциями
   strategy:
     type: Recreate
+  # Желаемое количество историй деплоев
+  revisionHistoryLimit: 12
   # селектор, который выбирает Pod'ы, попадающие под управление RC (Replication Controller)
   selector:
     matchLabels:
@@ -35,11 +35,31 @@ spec:
               value: '8080'
           resources:
             requests:
-              cpu: "200m"
-              memory: "128Mi"
+              cpu: "5m"
+              memory: "64Mi"
             limits:
-              cpu: "500m"
-              memory: "256Mi"
+              cpu: "50m"
+              memory: "512Mi"
       # чтобы Кубер мог скачивать образы из нашего GitLab Registry
       imagePullSecrets:
         - name: docker-config-secret
+      affinity:
+        # соответствие нод, где нет лейбла frontend
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: app
+                    operator: NotIn
+                    values:
+                      - frontend
+        # соответствие подов по лейблу и запрет размещения на ноде с одинаковым hostname лейблом
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: backend-report
+                topologyKey: kubernetes.io/hostname

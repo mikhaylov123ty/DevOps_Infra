@@ -11,6 +11,8 @@ spec:
   # Есть и более гибкая стратегии, например, RollingUpdate, которая будет обновлять Pod'ы порциями
   strategy:
     type: Recreate
+  # Желаемое количество историй деплоев
+  revisionHistoryLimit: 12
   # селектор, который выбирает Pod'ы, попадающие под управление RC (Replication Controller)
   selector:
     matchLabels:
@@ -50,3 +52,12 @@ spec:
             items:
               - key: nginx.conf
                 path: nginx.conf
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - frontend
