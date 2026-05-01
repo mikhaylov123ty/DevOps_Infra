@@ -10,7 +10,12 @@ spec:
   # Стратегия развёртывания. Recreate — удалит сначала все старые Pod'ы
   # Есть и более гибкая стратегии, например, RollingUpdate, которая будет обновлять Pod'ы порциями
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 20
+      maxUnavailable: 1
+  # Желаемое количество историй деплоев
+  revisionHistoryLimit: 12
   # селектор, который выбирает Pod'ы, попадающие под управление RC (Replication Controller)
   selector:
     matchLabels:
@@ -45,11 +50,11 @@ spec:
             containerPort: 8080
         resources:
             requests:
-              cpu: "200m"
-              memory: "128Mi"
+              cpu: "400m"
+              memory: "400Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "500Mi"
         livenessProbe:
           # проверка живучести выполнит запрос HTTP GET
           httpGet:
@@ -68,3 +73,12 @@ spec:
       # чтобы Кубер мог скачивать образы из нашего GitLab Registry
       imagePullSecrets:
         - name: docker-config-secret
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app
+                    operator: NotIn
+                    values:
+                      - frontend
