@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion}}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Name }}
+    env: production
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  strategy:
+  {{ toYaml .Values.deployment.strategy | nindent 4 }}
+  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      containers:
+        - image: {{ .Values.deployment.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Chart.Name }}
+          imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
+          env:
+  {{ toYaml .Values.deployment.env | nindent 12 }}
+          ports:
+            - name: {{ .Chart.Name }}
+              containerPort: {{ .Values.deployment.ports.containerPort }}
+          resources:
+  {{ toYaml .Values.deployment.resources | nindent 12 }}
+          livenessProbe:
+  {{ toYaml .Values.deployment.livenessProbe | nindent 12 }}
+      imagePullSecrets:
+  {{ toYaml .Values.deployment.imagePullSecrets | nindent 8 }}
+      affinity:
+  {{ toYaml .Values.deployment.affinity | nindent 8 }}
