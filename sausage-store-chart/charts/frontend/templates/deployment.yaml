@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion}}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Name }}
+    env: production
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  strategy:
+    type: {{ .Values.deployment.strategy.type }}
+  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      containers:
+        - image: {{ .Values.deployment.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Chart.Name }}
+          imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
+          ports:
+            - name: {{ .Chart.Name }}
+              containerPort: {{ .Values.deployment.ports.containerPort }}
+          volumeMounts:
+  {{ toYaml .Values.deployment.volumeMounts | nindent 12 }}
+          resources:
+  {{ toYaml .Values.deployment.resources | nindent 12 }}
+      imagePullSecrets:
+  {{ toYaml .Values.deployment.imagePullSecrets | nindent 8 }}
+      volumes:
+  {{ toYaml .Values.deployment.volumes | nindent 12 }}
+      affinity:
+  {{ toYaml .Values.deployment.affinity | nindent 8 }}

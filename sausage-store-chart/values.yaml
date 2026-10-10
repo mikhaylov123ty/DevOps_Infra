@@ -1,0 +1,200 @@
+backend: # Это имя чарта из dependencies
+  service:
+    type: ClusterIP
+    ports:
+      - port: 8080
+        protocol: TCP
+        targetPort: 8080
+  deployment:
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 20
+        maxUnavailable: 1
+    revisionHistoryLimit: 12
+    image: gitlab.praktikum-services.ru:5050/std-048-04/sausage-store/sausage-backend
+    imagePullPolicy: Always
+    env:
+      - name: SPRING_CLOUD_VAULT_HOST
+        valueFrom:
+          secretKeyRef:
+            name: vault
+            key: vault_host
+      - name: SPRING_CLOUD_VAULT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: vault
+            key: vault_token
+      - name: REPORT_PATH
+        value: /app/reports
+      - name: LOG_PATH
+        value: /app/logs
+    ports:
+      containerPort: 8080
+    resources:
+      requests:
+        cpu: "400m"
+        memory: "400Mi"
+      limits:
+        cpu: "500m"
+        memory: "500Mi"
+    livenessProbe:
+      # проверка живучести выполнит запрос HTTP GET
+      httpGet:
+        # путь к запросу в HTTP-запросе
+        path: /actuator/health
+        # порт, к которому должна подключиться проверка
+        port: 8080
+      # перед исполнением первой проверки подождать 15 секунд, пока стартанёт бэкенд
+      initialDelaySeconds: 15
+      # период выполнения проверки
+      periodSeconds: 30
+      # максимальное время выполнения проверки (по умолчанию 1 раз)
+      timeoutSeconds: 2
+      # сколько раз пробовать попытку, если она провалилась (по умолчанию 1 раз)
+      failureThreshold: 6
+    imagePullSecrets:
+      - name: docker-config-secret
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: app
+                  operator: NotIn
+                  values:
+                    - frontend
+
+backend-report: # Это имя чарта из dependencies
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 12
+  # Вместо latest правильнее использовать версию .Chart.AppVersion в шаблоне
+  image: gitlab.praktikum-services.ru:5050/std-048-04/sausage-store/sausage-backend-report
+  imagePullPolicy: Always
+  env:
+    - name: DB
+      valueFrom:
+        secretKeyRef:
+          name: mongodb-uri
+          key: uri
+    - name: PORT
+      value: '8080'
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "50m"
+      memory: "512Mi"
+  imagePullSecrets:
+    - name: docker-config-secret
+  affinity:
+    # соответствие нод, где нет лейбла frontend
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 80
+          preference:
+            matchExpressions:
+              - key: app
+                operator: NotIn
+                values:
+                  - frontend
+    # соответствие подов по лейблу и запрет размещения на ноде с одинаковым hostname лейблом
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 80
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: backend-report
+            topologyKey: kubernetes.io/hostname
+
+frontend:
+  configmap:
+    data:
+      nginx.conf: |
+        user  nginx;
+        worker_processes  auto;
+        error_log  /var/log/nginx/error.log notice;
+        pid        /var/run/nginx.pid;
+        events {
+            worker_connections  1024;
+        }
+
+        http {
+          server {
+
+            listen 80;
+
+            location / {
+              root /app/frontend;
+              index  index.html;
+              try_files $uri $uri/ /index.html;
+            }
+          }
+        }
+  deployment:
+    replicas: 1
+    strategy:
+      type: Recreate
+    revisionHistoryLimit: 12
+    image: gitlab.praktikum-services.ru:5050/std-048-04/sausage-store/sausage-frontend
+    imagePullPolicy: Always
+    ports:
+      containerPort: 80
+    volumeMounts:
+      - name: nginx-conf
+        mountPath: /etc/nginx/nginx.conf
+        subPath: nginx.conf
+        readOnly: true
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+    imagePullSecrets:
+      - name: docker-config-secret
+    volumes:
+      - name: nginx-conf
+        configMap:
+          name: frontend
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - frontend
+  ingress:
+    fqdn: std-048-04.k8s.praktikum-services.tech
+    ingressClassName: nginx
+    paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 8080
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8080
+  service:
+    type: ClusterIP
+    ports:
+      - port: 8080
+        protocol: TCP
+        targetPort: 80
